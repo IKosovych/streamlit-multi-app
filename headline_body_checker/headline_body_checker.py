@@ -8,7 +8,7 @@ st.set_page_config(page_title="News Title Fact-Checker", page_icon="📰", layou
 api_key = st.secrets.get("OPENAI_API_KEY")
 
 with st.sidebar:
-    st.header("⚙️ Settings")
+    st.header("Settings")
     st.markdown("---")
     st.markdown("### Scoring Criteria")
     st.markdown("🟢 **0.7 - 1.0**: Factually accurate, objective, and aligns perfectly with the text's nuance.")
@@ -26,9 +26,7 @@ with col2:
     body_input = st.text_area("Enter the Article Body:", height=250, placeholder="Body text...")
 
 if st.button("Evaluate Title", type="primary", use_container_width=True):
-    if not api_key:
-        st.error("Please enter your OpenAI API Key in the sidebar.")
-    elif not title_input or not body_input:
+    if not title_input or not body_input:
         st.warning("Please provide both a Title and Article Body.")
     else:
         with st.spinner("Analyzing logical entailment and manipulation..."):
