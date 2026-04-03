@@ -5,7 +5,7 @@ import streamlit as st
 from openai import OpenAI
 
 st.set_page_config(page_title="News Title Fact-Checker", page_icon="📰", layout="wide")
-api_key = os.getenv("OPENAI_API_KEY")
+api_key = st.secrets.get("OPENAI_API_KEY")
 
 with st.sidebar:
     st.header("⚙️ Settings")
@@ -27,9 +27,9 @@ with col2:
 
 if st.button("Evaluate Title", type="primary", use_container_width=True):
     if not api_key:
-        st.error("⚠️ Please enter your OpenAI API Key in the sidebar.")
+        st.error("Please enter your OpenAI API Key in the sidebar.")
     elif not title_input or not body_input:
-        st.warning("⚠️ Please provide both a Title and Article Body.")
+        st.warning("Please provide both a Title and Article Body.")
     else:
         with st.spinner("Analyzing logical entailment and manipulation..."):
             try:
