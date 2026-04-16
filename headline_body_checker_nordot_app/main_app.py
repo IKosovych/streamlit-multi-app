@@ -3,7 +3,7 @@ import streamlit as st
 from openai import OpenAI
 from scraper import NordotAppScraper
 
-st.set_page_config(page_title="News Title Fact-Checker", layout="wide")
+st.set_page_config(page_title="Ekkow Content Quality Score", layout="wide")
 api_key = st.secrets.get("OPENAI_API_KEY")
 URL = "https://nordot.app/-/units/{}"
 
@@ -46,7 +46,7 @@ Score: [a single float between 0.0 and 1.0]"""
     
     return score, reasoning
 
-st.title("News Title Fact-Checker")
+st.title("Ekkow Content Quality Score")
 st.markdown("Analyze headlines from Nordot units for accuracy and manipulation.")
 
 with st.sidebar:
@@ -79,15 +79,21 @@ if run_audit:
             else:
                 status.write(f"Found {len(stories)} articles. Evaluating with AI...")
 
+                accurate_count = 0
+                sensationalized_count = 0
+                manipulative_count = 0
                 for i, story in enumerate(stories):
                     score, reasoning = get_ai_evaluation(client, story['title'], story['body_text'])
 
                     if score >= 0.7:
                         label, color = "✅ Accurate", "green"
+                        accurate_count += 1
                     elif score >= 0.4:
                         label, color = "⚠️ Sensationalized", "orange"
+                        sensationalized_count += 1
                     else:
                         label, color = "🚨 Manipulative", "red"
+                        manipulative_count += 1
 
                     with st.expander(f"[{score}] {story['title']}"):
                         col1, col2 = st.columns([1, 4])
@@ -97,3 +103,21 @@ if run_audit:
                             st.markdown(f"**AI Reasoning:**\n{reasoning}")
                                 
                 status.update(label="Audit Complete!", state="complete", expanded=False)
+
+                total = len(stories)
+
+                accurate_pct = (accurate_count / total) * 100 if total else 0
+                sensationalized_pct = (sensationalized_count / total) * 100 if total else 0
+                manipulative_pct = (manipulative_count / total) * 100 if total else 0
+
+                st.divider()
+                st.subheader("Audit Summary")
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.metric("✅ Accurate", accurate_count, f"{accurate_pct:.1f}%")
+                with col2:
+                    st.metric("⚠️ Sensationalized", sensationalized_count, f"{sensationalized_pct:.1f}%")
+                with col3:
+                    st.metric("🚨 Manipulative", manipulative_count, f"{manipulative_pct:.1f}%")
