@@ -83,7 +83,8 @@ class NordotApiClient:
             "id": post.get("id"),
             "title": post.get("title"),
             "body_text": post.get("body"),
-            "published_at": post.get("published_at")
+            "published_at": post.get("published_at"),
+            "has_images": len(post.get("images", [])) > 0 or post.get("thumbnail") is not None
         }
 
 def valid_date(s):
