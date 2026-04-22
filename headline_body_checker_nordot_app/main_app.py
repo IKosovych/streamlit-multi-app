@@ -117,7 +117,7 @@ if run_audit:
                         "score": score,
                         "reasoning": reasoning,
                         "published_at": story['published_at'],
-                        "has_images": story['has_images'],
+                        "has_images": story.get('has_images'),
                         "broken_links": broken_links,
                         "body": story['body_text']
                     })
