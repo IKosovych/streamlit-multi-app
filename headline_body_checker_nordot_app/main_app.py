@@ -1,5 +1,6 @@
 import re
 import streamlit as st
+import pandas as pd
 import requests
 from concurrent.futures import ThreadPoolExecutor
 from openai import OpenAI
@@ -11,6 +12,12 @@ api_key = st.secrets.get("OPENAI_API_KEY")
 
 if "audit_results" not in st.session_state:
     st.session_state.audit_results = []
+
+def sync_select_all():
+    """Callback to update all individual checkboxes when 'Select All' is toggled."""
+    new_state = st.session_state.master_selector
+    for story in st.session_state.audit_results:
+        st.session_state[f"cb_{story['title']}"] = new_state
 
 def check_url(url):
     """Returns True if link is broken, False if OK."""
@@ -33,7 +40,6 @@ def find_broken_links(text):
             if is_broken:
                 broken_links.append(url)
     return broken_links
-
 
 def get_ai_evaluation(client, title, body):
     prompt = f"""You are an expert journalism fact-checker. 
@@ -88,6 +94,28 @@ with st.sidebar:
 
     st.divider()
     run_audit = st.button("Start Audit", type="primary", use_container_width=True)
+    
+    if st.session_state.audit_results:
+        st.divider()
+        st.header("Export Data")
+        
+        selected_data = [
+            s for s in st.session_state.audit_results 
+            if st.session_state.get(f"cb_{s['title']}", False)
+        ]
+        
+        if selected_data:
+            df = pd.DataFrame(selected_data)
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label=f"Download {len(selected_data)} Selected (CSV)",
+                data=csv,
+                file_name=f"nordot_audit_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime='text/csv',
+                use_container_width=True
+            )
+        else:
+            st.info("Select articles using the checkboxes to export.")
 
 if run_audit:
     if not unit_id:
@@ -118,9 +146,10 @@ if run_audit:
                         "reasoning": reasoning,
                         "published_at": story['published_at'],
                         "has_images": story.get('has_images'),
-                        "broken_links": broken_links,
-                        "body": story['body_text']
+                        "broken_links": ", ".join(broken_links) if broken_links else "",
+                        "body_text": story['body_text']
                     })
+                    st.session_state[f"cb_{story['title']}"] = False
                 
                 st.session_state.audit_results = temp_results
                 status.update(label="Audit Complete!", state="complete", expanded=False)
@@ -136,31 +165,37 @@ if st.session_state.audit_results:
         results = [s for s in results if search_query.lower() in s['title'].lower()]
 
     tab1, tab2, tab3 = st.tabs(["Quality Audit", "Missing Images", "Broken Links"])
+    manipulative_count = 0
 
     with tab1:
         accurate_count, sens_count, manip_count = 0, 0, 0
+        st.checkbox("Select All Visible", key="master_selector", on_change=sync_select_all)
         for story in results:
             if story['score'] >= 0.7:
                 label, accurate_count = "✅ Accurate", accurate_count + 1
             elif story['score'] >= 0.4:
                 label, sens_count = "⚠️ Sensationalized", sens_count + 1
             else:
-                label, manip_count = "🚨 Manipulative", manip_count + 1
+                label, manipulative_count = "🚨 Manipulative", manip_count + 1
 
-            with st.expander(f"[{story['score']}] {story['title']}"):
-                col1, col2 = st.columns([1, 4])
-                col1.metric("Score", story['score'], label)
-                col2.markdown(f"**Reasoning:** {story['reasoning']}")
+            col_sel, col_content = st.columns([0.1, 3.9])
+            with col_sel:
+                st.checkbox("", key=f"cb_{story['title']}")
+
+            with col_content:
+                with st.expander(f"[{story['score']}] {story['title']}"):
+                    c1, c2 = st.columns([1, 4])
+                    c1.metric("Score", story['score'], label)
+                    c2.markdown(f"**Reasoning:** {story['reasoning']}")
 
         total = len(results)
         if total > 0:
-            st.divider()
             st.divider()
             st.subheader("Audit Summary")
             c1, c2, c3 = st.columns(3)
             c1.metric("Accurate", accurate_count, f"{(accurate_count/total)*100:.1f}%")
             c2.metric("Sensationalized", sens_count, f"{(sens_count/total)*100:.1f}%")
-            c3.metric("Manipulative", manip_count, f"{(manip_count/total)*100:.1f}%")
+            c3.metric("Manipulative", manipulative_count, f"{(manipulative_count/total)*100:.1f}%")
 
     with tab2:
         no_image_stories = [s for s in results if not s['has_images']]
@@ -177,8 +212,5 @@ if st.session_state.audit_results:
         if not broken_link_stories:
             st.success("No broken links found!")
         for s in broken_link_stories:
-            with st.expander(f"{len(s['broken_links'])} Broken Link(s) in: {s['title']}"):
-                for link in s['broken_links']:
-                    st.error(f"Broken: {link}")
-                if st.checkbox("Show body content", key=f"body_{s['title'][:10]}"):
-                    st.text(s['body'])
+            with st.expander(f"Broken Link(s) in: {s['title']}"):
+                st.error(f"Links: {s['broken_links']}")
