@@ -74,7 +74,7 @@ Score: [a single float between 0.0 and 1.0]"""
     return score, reasoning
 
 st.title("Ekkow Content Quality Score")
-st.markdown("Analyze headlines from Nordot units for accuracy, images, and broken links.")
+st.markdown("Analyze headlines from Nordot units for accuracy, images and broken links.")
 
 with st.sidebar:
     st.header("Control Panel")
